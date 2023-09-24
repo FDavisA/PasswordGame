@@ -1,33 +1,42 @@
 const puppeteer = require('puppeteer');
 
 (async () => {
-  // Launch a new browser instance
-  const browser = await puppeteer.launch();
+  // Launch a new browser instance in headful mode
+  const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
+
+  // Event listener for browser disconnection
+  browser.on('disconnected', () => {
+    console.log('Browser disconnected, exiting.');
+    process.exit(0);
+  });
 
   // Navigate to the game page
   await page.goto('https://neal.fun/password-game/');
 
-  // Loop to keep playing the game
-  while (true) {
-    // Read rules
-    const rules = await page.$eval('some_selector_to_find_rules', el => el.textContent);
+  try {
+    // Loop to keep playing the game
+    while (true) {
+      // Read rules or instructions
+      const rules = await page.$eval('.password-label', el => el.textContent);
 
-    // Generate password based on rules
-    const password = generatePasswordBasedOnRules(rules);
+      // Generate password based on rules
+      const password = generatePasswordBasedOnRules(rules);
 
-    // Input password
-    await page.type('some_selector_for_password_field', password);
+      // Input password
+      await page.type('.password-box-inner', password);
 
-    // Click submit
-    await page.click('some_selector_for_submit_button');
-
-    // Wait for a bit before the next iteration (optional)
-    await page.waitForTimeout(1000);
+      // Wait for a bit before the next iteration (optional)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  } catch (error) {
+    console.log('An error occurred:', error.message);
+  } finally {
+    // Close the browser
+    await browser.close();
+    console.log('Browser closed, exiting.');
+    process.exit(0);
   }
-
-  // Close the browser (you might not reach this point if you're looping indefinitely)
-  await browser.close();
 })();
 
 function generatePasswordBasedOnRules(rules) {
