@@ -1,61 +1,51 @@
 const puppeteer = require('puppeteer');
+let solvedCaptcha = ''; // Global variable to store the solved CAPTCHA
 
 (async () => {
-  // Launch a new browser instance in headful mode
   const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
-
-  // Event listener for browser disconnection
-  browser.on('disconnected', () => {
-    console.log('Browser disconnected, exiting.');
-    process.exit(0);
-  });
-
-  // Navigate to the game page
   await page.goto('https://neal.fun/password-game/');
 
-  immutable = {
-    captcha: 'value1',
-    key2: 'value2',
-    key3: 'value3'
-  };
+  // Enter initial value to solve first 9 rules
+  await page.focus('div[contenteditable="true"]');
+  await page.keyboard.type('Pepsimay55555$XXXV');
 
-  try {
-    // Loop to keep playing the game
-    while (true) {
-      // Read rules or instructions
-      const rules = await page.$eval('.password-label', el => el.textContent);
+  // Fetch and parse rules within the browser context
+  const ruleDescriptions = await page.evaluate(() => {
+    const ruleElements = document.querySelectorAll('.rule');
+    const ruleDescs = Array.from(ruleElements).map(rule => rule.querySelector('.rule-desc').innerText.toLowerCase());
+    return ruleDescs;
+  });
 
-      // Generate password based on rules
-      const password = generatePasswordBasedOnRules(rules);
-      debugger;
-      // Input password
-      await page.type('.password-box-inner', password);
-
-      // Wait for a bit before the next iteration (optional)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  } catch (error) {
-    console.log('An error occurred:', error.message);
-  } finally {
-    // Close the browser
-    await browser.close();
-    console.log('Browser closed, exiting.');
-    process.exit(0);
+  // Check if any rule involves a CAPTCHA
+  if (ruleDescriptions.some(desc => desc.includes('captcha')) && !solvedCaptcha) {
+    solvedCaptcha = await solveCaptcha(page); // Your function to solve the CAPTCHA
   }
+
+  // Generate final password
+  const finalPassword = `Pepsimay55555$XXXV${solvedCaptcha}`;
+
+  // Input final password
+  await page.focus('div[contenteditable="true"]');
+  await page.keyboard.type(solvedCaptcha);
+
+  // ... (rest of your code)
+debugger;
+  await browser.close();
 })();
 
-function generatePasswordBasedOnRules(rules) {
-  // Your password generation logic here
-  return 'Pepsimay55555$XXXV';
+async function solveCaptcha(page) {
+  // Extract the src attribute of the captcha image
+  const captchaSrc = await page.evaluate(() => {
+    const captchaImg = document.querySelector('.captcha-img');
+    return captchaImg ? captchaImg.src : null;
+  });
+
+  // Parse the CAPTCHA value from the src URL
+  if (captchaSrc) {
+    const captchaValue = captchaSrc.split('/').pop().split('.')[0];
+    return captchaValue;
+  }
+
+  return null;
 }
-
-// function getCaptcha(rules) {
-//   // Extract the 'src' attribute of the CAPTCHA image
-//   const captchaSrc = await page.$eval('.captcha-img', img => img.getAttribute('src'));
-
-//   // Parse the CAPTCHA value from the 'src' attribute
-//   const captchaValue = captchaSrc.split('/').pop().split('.')[0];
-
-//   console.log(`CAPTCHA Value: ${captchaValue}`);
-// }
