@@ -14,6 +14,12 @@ const puppeteer = require('puppeteer');
   // Navigate to the game page
   await page.goto('https://neal.fun/password-game/');
 
+  immutable = {
+    captcha: 'value1',
+    key2: 'value2',
+    key3: 'value3'
+  };
+
   try {
     // Loop to keep playing the game
     while (true) {
@@ -22,7 +28,7 @@ const puppeteer = require('puppeteer');
 
       // Generate password based on rules
       const password = generatePasswordBasedOnRules(rules);
-
+      debugger;
       // Input password
       await page.type('.password-box-inner', password);
 
@@ -41,5 +47,15 @@ const puppeteer = require('puppeteer');
 
 function generatePasswordBasedOnRules(rules) {
   // Your password generation logic here
-  return 'some_password';
+  return 'Pepsimay55555$XXXV';
 }
+
+// function getCaptcha(rules) {
+//   // Extract the 'src' attribute of the CAPTCHA image
+//   const captchaSrc = await page.$eval('.captcha-img', img => img.getAttribute('src'));
+
+//   // Parse the CAPTCHA value from the 'src' attribute
+//   const captchaValue = captchaSrc.split('/').pop().split('.')[0];
+
+//   console.log(`CAPTCHA Value: ${captchaValue}`);
+// }
