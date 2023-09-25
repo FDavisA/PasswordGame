@@ -1,47 +1,61 @@
 const puppeteer = require('puppeteer');
-let solvedCaptcha = ''; // Global variable to store the solved CAPTCHA
 
 (async () => {
   const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
   await page.goto('https://neal.fun/password-game/');
 
-  // Enter initial value to solve first 9 rules
-  await page.focus('div[contenteditable="true"]');
-  await page.keyboard.type('Pepsimay55555$XXXV');
+  let password = 'Pepsimay55555$XXXV'; // Initial password
+  let solvedCaptcha = '';
+  let brokenRules = [];
 
-  // Fetch and parse rules within the browser context
-  const ruleDescriptions = await page.evaluate(() => {
-    const ruleElements = document.querySelectorAll('.rule');
-    const ruleDescs = Array.from(ruleElements).map(rule => rule.querySelector('.rule-desc').innerText.toLowerCase());
-    return ruleDescs;
-  });
+  do {
+    // Enter the password
+    await page.evaluate((newPassword) => {
+      const editableDiv = document.querySelector('div[contenteditable="true"]');
+      editableDiv.innerHTML = '';
+      editableDiv.innerText = newPassword;
+    }, password);
 
-  // Check if any rule involves a CAPTCHA
-  if (ruleDescriptions.some(desc => desc.includes('captcha')) && !solvedCaptcha) {
-    solvedCaptcha = await solveCaptcha(page); // Your function to solve the CAPTCHA
-  }
+    // Fetch and parse rules within the browser context
+    brokenRules = await page.evaluate(() => {
+      const brokenRuleElements = document.querySelectorAll('.rule-error');
+      const brokenRuleDescs = Array.from(brokenRuleElements).map(rule => rule.querySelector('.rule-desc').innerText.toLowerCase());
+      debugger;
+      return brokenRuleDescs;
+    });
 
-  // Generate final password
-  const finalPassword = `Pepsimay55555$XXXV${solvedCaptcha}`;
+    // Update the password based on broken rules
+    if (brokenRules.some(rule => rule.includes('your password must include this captcha')) && !solvedCaptcha) {
+      solvedCaptcha = await solveCaptcha(page);
+      password += solvedCaptcha;
+    }
 
-  // Input final password
-  await page.focus('div[contenteditable="true"]');
-  await page.keyboard.type(solvedCaptcha);
+    if (brokenRules.includes('the digits in your password must add up to 25')) {
+      debugger;
+      // Update the digits in the password to make their sum 25
+      // (You'll need to implement this logic)
+    }
 
-  // ... (rest of your code)
+    // ... (handle other broken rules)
+    debugger;
+
+  } while (brokenRules.length > 0);
+
+  console.log('Final Password:', password);
+
+  // Delay to keep the browser open for debugging
+  await new Promise(resolve => setTimeout(resolve, 5000));
 debugger;
   await browser.close();
 })();
 
 async function solveCaptcha(page) {
-  // Extract the src attribute of the captcha image
   const captchaSrc = await page.evaluate(() => {
     const captchaImg = document.querySelector('.captcha-img');
     return captchaImg ? captchaImg.src : null;
   });
 
-  // Parse the CAPTCHA value from the src URL
   if (captchaSrc) {
     const captchaValue = captchaSrc.split('/').pop().split('.')[0];
     return captchaValue;
