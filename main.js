@@ -1,7 +1,11 @@
 const puppeteer = require('puppeteer');
+const fetch = require('node-fetch');
 
 let solvedCaptcha = '';
-let wordleAnswer
+let wordleAnswer = ''
+let country = ''
+let leapYear = '0'
+let latLong
 
 getWordleAnswer().then((answer) => {
   wordleAnswer = answer;  // Set the global variable
@@ -52,8 +56,40 @@ getWordleAnswer().then((answer) => {
       password = mod_password + buildFixedPass()
     }
 
+    if (brokenRules.some(rule => rule.includes('your password must include the name of this country'))) {
+      try {
+        await page.waitForSelector('.geo-wrapper iframe', { timeout: 1000 }); // Adjust the timeout as needed
+        latLong = await page.evaluate(() => {
+          const iframe = document.querySelector('.geo-wrapper iframe');
+          const src = iframe ? iframe.src : null;
+          if (!src) return {};
+      
+          const url = new URL(src);
+          const params = new URLSearchParams(url.search);
+          const pb = params.get('pb');
+      
+          if (!pb) return {};
+      
+          const latLongMatch = pb.match(/!1d(-?\d+\.\d+)!2d(-?\d+\.\d+)/);
+          if (!latLongMatch) return {};
+      
+          return {
+            latitude: parseFloat(latLongMatch[1]),
+            longitude: parseFloat(latLongMatch[2]),
+          };
+        });
+      
+        console.log(`Latitude: ${latLong.latitude}, Longitude: ${latLong.longitude}`)
+
+      } catch (error) {
+        console.log('Could not find iframe in time:', error);
+      }
+      country = await getCountryName(latLong.latitude, latLong.longitude);
+      console.log('Country:', country);
+      password = mod_password + buildFixedPass()
+    }
+debugger
     // ... (handle other broken rules)
-    debugger;
 
   } while (brokenRules.length > 0);
 
@@ -111,7 +147,7 @@ function removeDigits(str) {
 }
 
 function buildFixedPass() {
-  return solvedCaptcha + wordleAnswer
+  return solvedCaptcha + wordleAnswer + country + leapYear
 }
 
 async function getWordleAnswer() {
@@ -134,5 +170,40 @@ async function getWordleAnswer() {
     }
   } catch (error) {
     console.error(`An error occurred: ${error}`);
+  }
+}
+
+async function getCountryName(latitude, longitude) {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`;
+
+  console.log('Querying nominatim for the country');
+  console.log('URL:', url);
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'davypassapp v0.1',
+        'Accept-Language': 'en-US,en;q=0.5'
+      },
+      timeout: 10000  // 10 seconds
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Data:', data);
+      if (data && data.address) {
+        console.log('Country:', data.address.country);
+        return data.address.country.replace(/\s+/g, '');
+      } else {
+        console.log('No country data received');
+        return null;
+      }
+    } else {
+      console.log('Received non-OK status:', response.status);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching country:', error);
+    return null;
   }
 }
